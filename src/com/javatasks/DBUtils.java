@@ -8,63 +8,30 @@ import java.util.List;
 
 class DBUtils {
 
-    private static String url = "jdbc:mysql://localhost:3306/j_task2_schema?useSSL=false";
-    private static String user = "root";
-    private static String password = "1234";
 
-    private static Connection connectDB(String url, String user, String password) {
-        try {
-            return DriverManager.getConnection(url, user, password);
-        } catch (SQLException e) {
-            System.err.println(e.getMessage());
-            return  null;
-        }
+    private static Connection connectDB(String url, String user, String password) throws SQLException {
+        return DriverManager.getConnection(url, user, password);
+
     }
 
-    private static void updateDB(String query) {
-
-        Connection connection = null;
-        Statement statement = null;
-
-        try
-        {
-            connection = connectDB(url, user, password);
-            statement = connection != null ? connection.createStatement() : null;
-            if (statement != null) {
-                statement.executeUpdate(query);
-            }
-
-        } catch (SQLException e) {
-            System.err.println("Error connection to database!\n" + e);
-        } finally {
-            if (statement != null ){
-                try {
-                    statement.close();
-                } catch(Exception e) {
-                    System.err.println("Error statement!\n" + e);
-                }
-            }
-            if (connection != null) {
-                try {
-                    connection.close();
-                } catch(Exception e) {
-                    System.err.println("Error connection!\n" + e);
-                }
-            }
-        }
+    private static Connection connectDB() throws SQLException {
+        String user = "root";
+        String password = "1234";
+        String url = "jdbc:mysql://localhost:3306/j_task2_schema?useSSL=false";
+        return connectDB(url, user, password);
     }
 
-    private static List<User> selectDB(String query) {
+    private static List<User> selectDB(String query) throws SQLException {
         Connection connection = null;
-        Statement statement = null;
+        PreparedStatement statement = null;
         ResultSet resultSet = null;
 
         List<User> userList = new LinkedList<>();
 
         try {
-            connection = connectDB(url, user, password);
-            statement = connection != null ? connection.createStatement() : null;
-            resultSet = statement != null ? statement.executeQuery(query) : null;
+            connection = connectDB();
+            statement = connection.prepareStatement(query);
+            resultSet = statement.executeQuery();
 
             while (resultSet.next()) {
                 userList.add(new User(
@@ -74,95 +41,246 @@ class DBUtils {
                         resultSet.getString("Login"),
                         resultSet.getString("Email")));
             }
-        } catch (SQLException e) {
-            System.err.println("Error connection to database!\n" + e);
         } finally {
             if (resultSet != null) {
-                try {
-                    resultSet.close();
-                } catch (Exception e) {
-                    System.err.println("Error result set!\n" + e);
-                }
+                resultSet.close();
             }
             if (statement != null) {
-                try {
-                    statement.close();
-                } catch(Exception e) {
-                    System.err.println("Error statement!\n" + e);
-                }
+                statement.close();
+
             }
             if (connection != null) {
-                try {
-                    connection.close();
-                } catch(Exception e) {
-                    System.err.println("Error connection!\n" + e);
-                }
+                connection.close();
             }
         }
         return userList;
     }
 
-    static void addUser(User user) {
-        updateDB(
-                "INSERT INTO user (`Name`, `Surname`, `Login`, `Email`)  VALUES ('" + user.getName() +
-                "', '" + user.getSurname() +
-                "', '" + user.getLogin() +
-                "', '" + user.getEmail() + "');");
+    static void addUser(User user) throws SQLException {
+        String query = "INSERT INTO User VALUES (?, ?, ?, ?, ?);";
+        Connection connection = null;
+        PreparedStatement statement = null;
+
+        try {
+            connection = connectDB();
+            statement = connection.prepareStatement(query);
+            statement.setInt(1, user.getId());
+            statement.setString(2, user.getName());
+            statement.setString(3, user.getSurname());
+            statement.setString(4, user.getLogin());
+            statement.setString(5, user.getEmail());
+            statement.executeUpdate();
+
+        } finally {
+            if (statement != null) {
+                statement.close();
+            }
+            if (connection != null) {
+                connection.close();
+            }
+        }
     }
 
-    static void updateUser(int id, User user) {
-        updateDB(
-                "UPDATE user SET Name='" + user.getName() +
-                        "', Surname='" + user.getSurname() +
-                        "', Login='" + user.getLogin() +
-                        "', Email='" + user.getEmail() +
-                        "' WHERE Id = " + id + ";");
+    static void updateUser(int id, User user) throws SQLException {
+        String query = "UPDATE User SET id=?,name=?,surname=?,login=?,email=? WHERE id= ?";
+        Connection connection = null;
+        PreparedStatement statement = null;
+
+        try {
+            connection = connectDB();
+            statement = connection.prepareStatement(query);
+            statement.setInt(1, user.getId());
+            statement.setString(2, user.getName());
+            statement.setString(3, user.getSurname());
+            statement.setString(4, user.getLogin());
+            statement.setString(5, user.getEmail());
+            statement.setInt(6, id);
+            statement.executeUpdate();
+
+        } finally {
+            if (statement != null) {
+                statement.close();
+            }
+            if (connection != null) {
+                connection.close();
+            }
+        }
     }
 
-    static void deleteUser(int id) {
-        updateDB("DELETE FROM user WHERE Id=" + id + ";");
+    static void deleteUser(int id) throws SQLException {
+        String query = "DELETE FROM User WHERE id=?;";
+        Connection connection = null;
+        PreparedStatement statement = null;
+
+        try {
+            connection = connectDB();
+            statement = connection.prepareStatement(query);
+            statement.setInt(1, id);
+            statement.executeUpdate();
+
+        } finally {
+            if (statement != null) {
+                statement.close();
+            }
+            if (connection != null) {
+                connection.close();
+            }
+        }
     }
 
-    static List<User> sortUsers(int sort) {
+    static List<User> sortUsers(int sort) throws SQLException {
         String query;
         switch (sort) {
             case 1:
-                query = "SELECT * FROM user ORDER BY Name;";
+                query = "SELECT * FROM User ORDER BY Name;";
                 break;
             case 2:
             default:
-                query = "SELECT * FROM user ORDER BY Surname;";
+                query = "SELECT * FROM User ORDER BY Surname;";
                 break;
         }
         return selectDB(query);
     }
 
-    static List<User> filterUsers(int filter){
+    static List<User> filterUsers(int filter, String mask) throws SQLException {
         String query;
-        String mask = "%a%";
-        switch (filter){
+        switch (filter) {
             case 1:
-                query ="SELECT * FROM user WHERE name LIKE '" + mask + "';";
+                query = "SELECT * FROM User WHERE Name LIKE ?";
                 break;
             case 2:
             default:
-                query ="SELECT * FROM user WHERE name LIKE '" + mask + "';";
+                query = "SELECT * FROM User WHERE Surname LIKE ?";
                 break;
         }
-        return selectDB(query);
+        Connection connection = null;
+        PreparedStatement statement = null;
+        ResultSet resultSet = null;
+
+        List<User> userList = new LinkedList<>();
+
+        try {
+            connection = connectDB();
+            statement = connection.prepareStatement(query);
+            statement.setString(1, "%" + mask + "%");
+            resultSet = statement.executeQuery();
+
+            while (resultSet.next()) {
+                userList.add(new User(
+                        resultSet.getInt("Id"),
+                        resultSet.getString("Name"),
+                        resultSet.getString("Surname"),
+                        resultSet.getString("Login"),
+                        resultSet.getString("Email")));
+            }
+
+        } finally {
+            if (resultSet != null) {
+                resultSet.close();
+            }
+            if (statement != null) {
+                statement.close();
+            }
+            if (connection != null) {
+                connection.close();
+            }
+        }
+        return userList;
     }
 
-    static User getUser(int id) {
-        List<User> userList = selectDB("SELECT * FROM user WHERE Id = " + id + ";");
-        if (!userList.isEmpty()) {
-            return userList.get(0);
+    static User getUser(int id) throws SQLException {
+
+        String query = "SELECT * FROM User WHERE id = ?";
+        User user = new User();
+        boolean ok = false;
+        Connection connection = null;
+
+        PreparedStatement preparedStatement = null;
+        ResultSet resultSet = null;
+
+        try {
+            connection = connectDB();
+            preparedStatement = connection.prepareStatement(query);
+            preparedStatement.setInt(1, id);
+
+            resultSet = preparedStatement.executeQuery();
+
+            if (resultSet.next()) {
+                user.setId(resultSet.getInt("id"));
+                user.setName(resultSet.getString("name"));
+                user.setSurname(resultSet.getString("surname"));
+                user.setLogin(resultSet.getString("login"));
+                user.setEmail(resultSet.getString("email"));
+                ok = true;
+            }
+
+        } finally {
+            if (resultSet != null) {
+                resultSet.close();
+            }
+            if (preparedStatement != null) {
+                preparedStatement.close();
+            }
+            if (connection != null) {
+                connection.close();
+            }
+        }
+        if (ok) {
+            return user;
         }
         return null;
     }
 
-    static List<User> getUsers() {
-        return selectDB("SELECT * FROM user");
+    static List<User> getUsers() throws SQLException {
+        String query = "SELECT * FROM User";
+        return selectDB(query);
     }
 
+    static void exportData(String filename) throws SQLException {
+        String query = "SELECT * INTO OUTFILE ? FROM User";
+        Connection connection = null;
+        PreparedStatement statement = null;
+        ResultSet resultSet = null;
+
+        try {
+            connection = connectDB();
+            statement = connection.prepareStatement(query);
+            statement.setString(1, filename);
+            resultSet = statement.executeQuery();
+
+        } finally {
+            if (resultSet != null) {
+                resultSet.close();
+            }
+            if (statement != null) {
+                statement.close();
+            }
+            if (connection != null) {
+                connection.close();
+            }
+        }
+    }
+
+    static void importData(String filename) throws SQLException {
+        String query = "LOAD DATA INFILE ? INTO TABLE User;";
+
+        Connection connection = null;
+        PreparedStatement statement = null;
+
+        try {
+            connection = connectDB();
+            statement = connection.prepareStatement(query);
+            statement.setString(1, filename);
+            statement.executeUpdate();
+
+        } finally {
+            if (statement != null) {
+                statement.close();
+            }
+            if (connection != null) {
+                connection.close();
+            }
+        }
+    }
 
 }

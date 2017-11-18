@@ -2,7 +2,9 @@ package com.javatasks;
 
 import com.javatasks.entity.User;
 
-import java.util.*;
+import java.sql.SQLException;
+import java.util.List;
+import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -11,11 +13,11 @@ class UI {
     private static final String ERROR_INPUT_MESSAGE = "Incorrect value. Try again: ";
 
     static void startMenu() {
-        int buffer = -1;
+        int buffer;
 
         Scanner in = new Scanner(System.in);
 
-        while(buffer != 0) {
+        while (true) {
             System.out.println();
             System.out.println("1) Add user");
             System.out.println("2) Remove user(s)");
@@ -23,44 +25,86 @@ class UI {
             System.out.println("4) Show users");
             System.out.println("5) Sort users");
             System.out.println("6) Filter users");
+            System.out.println("7) Import");
+            System.out.println("8) Export");
             System.out.println("0) Exit");
             System.out.print("Enter a number: ");
 
 
             buffer = inputInt(in);
 
-            switch (buffer)
-            {
-                case 1: add(in);
+            switch (buffer) {
+                case 1:
+                    add(in);
                     break;
-                case 2: remove(in);
+                case 2:
+                    remove(in);
                     break;
-                case 3: change(in);
+                case 3:
+                    change(in);
                     break;
-                case 4: show();
+                case 4:
+                    show();
                     break;
-                case 5: filter(in);
+                case 5:
+                    sort(in);
                     break;
-                case 6: sort(in);
+                case 6:
+                    filter(in);
                     break;
-                case 0: return;
-                default: System.out.println(ERROR_INPUT_MESSAGE);
+                case 7:
+                    importData(in);
+                    break;
+                case 8:
+                    exportData(in);
+                    break;
+                case 0:
+                    return;
+                default:
+                    System.out.println(ERROR_INPUT_MESSAGE);
             }
 
         }
     }
 
+    private static void exportData(Scanner in) {
+        System.out.println("Input filename: ");
+        in.nextLine();
+        String file = in.nextLine();
+        try {
+            DBUtils.exportData(file + ".csv");
+        } catch (SQLException e) {
+            System.err.println("Error export!");
+            System.err.println(e);
+        }
+    }
+
+    private static void importData(Scanner in) {
+        System.out.println("Input filename:");
+        in.nextLine();
+        String file = in.nextLine();
+        try {
+            DBUtils.importData(file + ".csv");
+        } catch (SQLException e) {
+            System.err.println("Error import!");
+        }
+    }
+
 
     private static void change(Scanner in) {
-        DBUtils.getUsers();
-        System.out.println("Choose User:");
-        int id = inputInt(in);
-        User user = DBUtils.getUser(id);
-        if (user == null){
-            System.out.println("User with id " + id + " not found!");
-        }else{
-            changeUser(user);
-            DBUtils.updateUser(id, user);
+        try {
+            DBUtils.getUsers();
+            System.out.println("Choose User:");
+            int id = inputInt(in);
+            User user = DBUtils.getUser(id);
+            if (user == null) {
+                System.out.println("User with id " + id + " not found!");
+            } else {
+                changeUser(user);
+                DBUtils.updateUser(id, user);
+            }
+        } catch (SQLException e) {
+            System.err.println("Error change!");
         }
     }
 
@@ -68,25 +112,29 @@ class UI {
 
         System.out.println("Enter count of deleting users: ");
 
-        int count  = inputInt(in);
+        int count = inputInt(in);
 
         System.out.println("Enter id(s) of the product via space: ");
 
-        System.out.println("Input "+ count+ " ids");
-        for (int i = 0; i<count; i++){
-            DBUtils.deleteUser(inputInt(in));
+        System.out.println("Input " + count + " ids");
+        try {
+            for (int i = 0; i < count; i++) {
+                DBUtils.deleteUser(inputInt(in));
+            }
+        } catch (SQLException e) {
+            System.err.println("Error remove!");
         }
     }
 
     private static void add(Scanner in) {
         System.out.print("Name: ");
-        String name  = in.next();
+        String name = in.next();
 
         System.out.print("Surname: ");
-        String surname  = in.next();
+        String surname = in.next();
 
         System.out.print("Login: ");
-        String login  = in.next();
+        String login = in.next();
 
         System.out.print("E-mail: ");
         String email = in.next();
@@ -95,12 +143,20 @@ class UI {
             System.out.println(ERROR_INPUT_MESSAGE);
             email = in.nextLine();
         }
-
-        DBUtils.addUser(new User(name, surname, login, email));
+        try {
+            DBUtils.addUser(new User(name, surname, login, email));
+        } catch (SQLException e) {
+            System.err.println("Error add!");
+        }
     }
 
     private static void show() {
-        printUsers(DBUtils.getUsers());
+        try {
+            printUsers(DBUtils.getUsers());
+        } catch (SQLException e) {
+            System.err.println("Error show!");
+            System.err.println(e);
+        }
     }
 
     private static void filter(Scanner in) {
@@ -108,13 +164,19 @@ class UI {
         System.out.println("1 - Name");
         System.out.println("2 - Surname");
         int command = inputInt(in);
-        while(command > 2 || command < 1){
+        while (command > 2 || command < 1) {
             System.out.println("Repeat input");
             System.out.println("1 - name, 2 - surname:");
             command = inputInt(in);
         }
-        System.out.println("Contains 'a': ");
-        printUsers(DBUtils.filterUsers(command));
+
+        System.out.print("Enter mask: ");
+        String mask = in.next();
+        try {
+            printUsers(DBUtils.filterUsers(command, mask));
+        } catch (SQLException e) {
+            System.err.println("Error filter!");
+        }
     }
 
     private static void sort(Scanner in) {
@@ -122,12 +184,17 @@ class UI {
         System.out.println("1 - Name");
         System.out.println("2 - Surname");
         int command = inputInt(in);
-        while(command > 2 || command < 1){
+        while (command > 2 || command < 1) {
             System.out.println("Repeat input");
             System.out.println("1 - name, 2 - surname:");
             command = inputInt(in);
         }
-        printUsers(DBUtils.sortUsers(command));
+
+        try {
+            printUsers(DBUtils.sortUsers(command));
+        } catch (SQLException e) {
+            System.err.println("Error sort!");
+        }
     }
 
     private static int inputInt(Scanner in) {
@@ -138,8 +205,7 @@ class UI {
                 if (buffer < 0) {
                     System.out.println(ERROR_INPUT_MESSAGE);
                 }
-            }
-            else {
+            } else {
                 in.next();
                 System.out.println(ERROR_INPUT_MESSAGE);
             }
@@ -148,18 +214,18 @@ class UI {
     }
 
 
-    private static void changeUser(User user){
+    private static void changeUser(User user) {
         Scanner in = new Scanner(System.in);
-        System.out.println("Change name ( old value "+ user.getName() +"): ");
+        System.out.println("Change name ( old value " + user.getName() + "): ");
         user.setName(in.nextLine());
 
-        System.out.println("Change surname ( old value "+ user.getSurname() +"): ");
+        System.out.println("Change surname ( old value " + user.getSurname() + "): ");
         user.setSurname(in.nextLine());
 
-        System.out.println("Change login ( old value "+ user.getLogin() +"): ");
+        System.out.println("Change login ( old value " + user.getLogin() + "): ");
         user.setLogin(in.nextLine());
 
-        System.out.println("Change email ( old value "+ user.getEmail() +"): ");
+        System.out.println("Change email ( old value " + user.getEmail() + "): ");
 
         String email = in.nextLine();
         while (!CheckEmail(email)) {
@@ -173,7 +239,7 @@ class UI {
         if (list.isEmpty())
             System.out.print("List is empty!");
         else
-            for(User user : list)
+            for (User user : list)
                 System.out.print(user);
     }
 
